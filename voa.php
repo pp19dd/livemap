@@ -43,10 +43,10 @@ options array:
 ------------------------------------------------------------------------------------------------------
 */
 
-if( !defined( 'VOA_SMARTY_VERSION' ) ) {
-	define( 'VOA_SMARTY_VERSION', 'Smarty-3.1.1' );
-}
-require_once( VOA_SMARTY_VERSION . '/libs/Smarty.class.php' );
+// if( !defined( 'VOA_SMARTY_VERSION' ) ) {
+// 	define( 'VOA_SMARTY_VERSION', 'Smarty-3.1.1' );
+// }
+// require_once( VOA_SMARTY_VERSION . '/libs/Smarty.class.php' );
 
 function pre($a, $die = true, $var_name = null) {
 	echo "<PRE>";
@@ -71,7 +71,8 @@ function smarty_modifier_ago($tm, $cur_tm = null) {
 	return $x;
 }
 
-class VOA extends Smarty {
+//class VOA extends Smarty {
+class VOA {
 
 	var $sql = '';
 	var $sql_history = array();

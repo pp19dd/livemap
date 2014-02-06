@@ -49,21 +49,25 @@ div.content_column2_1, div.content_column2_1_row { width:978px !important; }
 
 <script type="text/javascript">
 var sochi = new live_map({
-	name: "sochi_map_auth",
+
+	// make sure project = variable name instantiating this
 	project: "sochi",
 	div_map: "sochi_map",
 	lat: 38.892302, 
 	lng:-77.026391,
-	div_admin: "admin_panel"
+	
+	json_url: "http://localhost/livemap/edit.php?project=inauguration&action=list&",
+	edit_url: "http://localhost/livemap/"
 });
 sochi.init();
 
-function inauguration_object_static(data) {
+// removed: div_admin and name
+
+function livemap_object_static(data) {
 	sochi.actual_sync(sochi, data);
 }
 
 </script>
-
 
 
 </body>

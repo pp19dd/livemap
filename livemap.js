@@ -18,8 +18,7 @@ function live_map(options) {
 	this.__init({
 		name: "livemap",
 		div_map: "livemap_id",
-		div_admin: "admin_panel",
-		project: "",
+		project: "untitled",
 		lat: 0,
 		lng: 0,
 		map: null,
@@ -35,6 +34,8 @@ function live_map(options) {
 		shouts: { }		// perm, need id
 	});
 	this.__init(options);
+	
+	this.cookie_name = "livemap_auth_" + this.name;
 }
 
 live_map.prototype.__init = function(options) {
@@ -48,21 +49,37 @@ live_map.prototype.try_login = function() {
 	if( this.auth.c == true ) return( false );
 	this.auth.c = true;
 	
-	$.cookie(this.name, "true" );
+	$.cookie(this.cookie_name, "true" );
 	
-	$("#" + this.div_admin).html(
-		"<div style='padding:10px; margin-top:10px; margin-bottom:10px; background-color: cornflowerblue; color: white'>" +
-		"<button onclick='livemap_object.try_logout(); return(false);'>{logout}</button>" +
-		"<button style='margin-left:10px' onclick='livemap_object.add_point(); return(false);'>{add point}</button>" +
-		"&nbsp;&nbsp;Tweet URL: <input id='add_shout_url' type='text' value='' />" +
-		"<button style='margin-left:10px' onclick='livemap_object.insert_shout(); return(false);'>{add shout}</button>" +
-		"</div>"
-	);
+	$("#" + this.div_map).after("<div id='livemap_admin_panel'>test</div>");
+	var admin_container = $("#livemap_admin_panel");
+	admin_container.css({
+		"padding": "10px",
+		"margin-top": "10px",
+		"margin-bottom": "10px",
+		"background-color": "cornflowerblue",
+		"color": "white"
+	});
+	
+	// thanks, scopes
+	var that = this;
+
+	var button_logout = $("<button>{logout}</button>");
+	button_logout.click( function() {
+		that.try_logout();  return( false );
+	});
+	admin_container.append( button_logout );
+	
+	var button_add = $("<button>{add point}</button>");
+	button_add.click( function() {
+		that.add_point(); return( false );
+	});
+	admin_container.append( button_add );
 
 }
 
 live_map.prototype.try_logout = function() {
-	$.cookie(this.name, null );
+	$.cookie(this.cookie_name, null );
 	window.location = window.location;
 }
 
@@ -119,6 +136,11 @@ live_map.prototype.sync = function() {
 	
 	}
 }
+
+live_map.prototype.remove_temp = function( which_one ) {
+	this.cursor[which_one].setMap( null );
+}
+
 
 live_map.prototype.init = function() {
 	
@@ -207,6 +229,46 @@ live_map.prototype.delete_fragment = function(delete_id) {
 	);
 },
 
+live_map.prototype.try_adding = function( which_one ) {
+
+	var url = $("#inauguration_text_" + which_one).val();
+	var q_url = 
+		"&url=" + escape(url) + 
+		"&lat=" + this.cursor[which_one].getPosition().lat() +
+		"&lng=" + this.cursor[which_one].getPosition().lng();
+
+	var that = this;
+	
+	console.info( "trying to discover " + q_url );
+	
+	console.info( this.edit_url );
+	
+	var request_url = that.edit_url + "discover.php?=" + q_url + "&callback=?";
+	console.info( "request_url = " + request_url );
+	
+	jQuery.getJSON( request_url, null, function(data) {
+			
+			console.info( "got response ");
+			console.info( data );
+			
+			that.infowindow.setContent(
+				data.entry.embed.code +
+				"<hr/>Everything ok?  " +
+				"<a href='javascript:livemap_object.save_point(" + which_one + ", \"" + q_url + "\")'>{save}</a> " +
+				"<a href='javascript:livemap_object.remove_temp(" + which_one + ")'>{Cancel}</a> "
+			);
+			
+			try {
+				twttr.widgets.load();
+			} catch( err ) {
+			
+			}
+		}
+	);
+	
+}
+
+
 //returns a small snippet for delete / confirm delete
 live_map.prototype.add_marker = function( data, i ) {
 
@@ -237,6 +299,39 @@ live_map.prototype.add_marker = function( data, i ) {
 	})(this.markers[data.id]);
 
 }
+
+live_map.prototype.add_point = function() {
+
+	// create a temporary marker that you can edit, save, or delete (hide)
+	this.cursor.push( new google.maps.Marker({
+		//position: new google.maps.LatLng(38.892302,-77.026391),
+		position: this.map.getCenter(),
+		map: this.map,
+		title: "Click to edit, Click+Drag to move",
+		draggable: true,
+		bounce: true
+	}));
+	
+	// have to wrap this in anon :/
+	(function( marker, num, that) {
+		
+		google.maps.event.addListener(marker, 'click', function() {
+			
+			marker.__num = num;
+			that.infowindow.setContent(
+				"<div style='font-size:10px'>" +
+				"{<a href='javascript:" + that.project + ".remove_temp(" + num + ")'>cancel</a>} " +
+				"URL: <input style='' autocomplete='off' value='' spellcheck='false' type='text' id='inauguration_text_" + num + "' /> " +
+				"{<a href='javascript:"+ that.project +".try_adding(" + num + ");'>Discover</a>}" +
+				"<div class='placeholder' style='border-top:1px dotted gray; border-bottom:1px dotted gray'></div>" +
+				"<div class='placeholder_after'></div>" +
+				"</div>"
+			);
+			that.infowindow.open( that.map, marker );
+		});
+	})(this.cursor[this.cursor.length-1], this.cursor.length-1, this);
+}
+
 
 
 
@@ -302,66 +397,7 @@ var livemap_object = {
 				this.sync();
 			}
 		);
-	},
-	try_adding: function( which_one ) {
-
-		var url = $("#inauguration_text_" + which_one).val();
-		var q_url = 
-			"&url=" + escape(url) + 
-			"&lat=" + livemap_object.cursor[which_one].getPosition().lat() +
-			"&lng=" + livemap_object.cursor[which_one].getPosition().lng();
-		
-		jQuery.getJSON(
-			"http://tools.voanews.com/utilities/inauguration-2013/discover.php?=" + q_url + "&callback=?", null, function(data) {
-				livemap_object.infowindow.setContent(
-					data.entry.embed.code +
-					"<hr/>Everything ok?  " +
-					"<a href='javascript:livemap_object.save_point(" + which_one + ", \"" + q_url + "\")'>{save}</a> " +
-					"<a href='javascript:livemap_object.remove_temp(" + which_one + ")'>{Cancel}</a> "
-				);
-				
-				try {
-					twttr.widgets.load();
-				} catch( err ) {
-				
-				}
-			}
-		);
-		
-	},
-	add_point: function() {
-
-		// create a temporary marker that you can edit, save, or delete (hide)
-		this.cursor.push( new google.maps.Marker({
-			position: new google.maps.LatLng(38.892302,-77.026391),
-			map: livemap_object.map,
-			title: "Click to edit, Click+Drag to move",
-			draggable: true,
-			bounce: true
-		}));
-
-		// have to wrap this in anon :/
-		(function( marker, num) {
-			google.maps.event.addListener(marker, 'click', function() {
-				
-				marker.__num = num;
-			
-				livemap_object.infowindow.setContent(
-					"<div style='font-size:10px'>" +
-					"{<a href='javascript:livemap_object.remove_temp(" + num + ")'>cancel</a>} " +
-					"URL: <input style='' autocomplete='off' value='' spellcheck='false' type='text' id='inauguration_text_" + num + "' /> " +
-					"{<a href='javascript:livemap_object.try_adding(" + num + ");'>Discover</a>}" +
-					"<div class='placeholder' style='border-top:1px dotted gray; border-bottom:1px dotted gray'></div>" +
-					"<div class='placeholder_after'></div>" +
-					"</div>"
-				);
-				livemap_object.infowindow.open( livemap_object.map, marker );
-			});
-		})(this.cursor[this.cursor.length-1], this.cursor.length-1);
-	},
-	remove_temp: function( which_one ) {
-		livemap_object.cursor[which_one].setMap( null );
-	},
+	}
 
 }
 
